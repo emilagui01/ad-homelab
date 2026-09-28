@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Active Directory Home Lab | Emil Aguirre Herrera</title>
+<meta name="description" content="Windows Server 2022 Active Directory home lab by Emil Aguirre Herrera: domain controller, DNS, DHCP, OUs, domain-joined Windows 11 client, and a troubleshooting log.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ps-bg: #012456;
+    --ps-bg-deep: #001a40;
+    --ps-panel: #0b2d63;
+    --ps-border: #1d4a8f;
+    --ps-text: #eeedf0;
+    --ps-dim: #9fb3d1;
+    --ps-yellow: #f9f1a5;
+    --ps-cmdlet: #ffff66;
+    --ps-param: #a9a9a9;
+    --ps-string: #5fd7ff;
+    --ps-var: #8be9a8;
+    --ps-green: #13a10e;
+    --ps-green-light: #6ee06a;
+    --ps-red: #ff5f5f;
+    --ps-error-bg: #2a0f24;
+    --chrome: #f0f0f0;
+    --chrome-text: #1b1b1b;
+    --chrome-border: #c8c8c8;
+    --page: #0a1a33;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--page);
+    background-image: radial-gradient(circle at 20% 0%, #13305e 0%, var(--page) 55%);
+    color: var(--ps-text);
+    font-family: "Cascadia Mono", "JetBrains Mono", Consolas, "Courier New", monospace;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  a { color: var(--ps-string); }
+  a:hover { color: var(--ps-yellow); }
+
+  .wrap { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; }
+
+  /* ---------- window chrome ---------- */
+  .window {
+    border: 1px solid var(--chrome-border);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0,0,0,.45);
+    margin-bottom: 28px;
+    background: var(--ps-bg);
+  }
+  .titlebar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--chrome); color: var(--chrome-text);
+    font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px;
+    padding: 7px 0 7px 12px;
+  }
+  .titlebar .icon {
+    width: 18px; height: 18px; flex: 0 0 auto;
+    background: var(--ps-bg); border-radius: 3px;
+    color: #fff; font: 700 11px/18px "JetBrains Mono", monospace; text-align: center;
+  }
+  .titlebar .title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .titlebar .btns { display: flex; }
+  .titlebar .btns span {
+    width: 42px; text-align: center; font-size: 14px; color: #444; user-select: none;
+  }
+  .titlebar .btns span:last-child:hover { background: #e81123; color: #fff; }
+
+  .tabs {
+    display: flex; flex-wrap: wrap; gap: 2px;
+    background: #202020; padding: 6px 8px 0;
+    font-size: 12.5px;
+  }
+  .tabs a {
+    color: #cfcfcf; text-decoration: none;
+    padding: 6px 12px; border-radius: 6px 6px 0 0;
+    background: #2b2b2b;
+  }
+  .tabs a:hover { background: var(--ps-bg); color: #fff; }
+
+  .console { padding: 18px 20px 22px; }
+  @media (max-width: 600px) { .console { padding: 14px 14px 18px; } body { font-size: 14px; } }
+
+  /* ---------- prompt lines ---------- */
+  .prompt { margin: 0 0 6px; word-break: break-word; }
+  .prompt .ps { color: var(--ps-text); }
+  .prompt .cmd { color: var(--ps-cmdlet); }
+  .prompt .prm { color: var(--ps-param); }
+  .prompt .str { color: var(--ps-string); }
+  h1, h2, h3 { font-weight: 700; margin: 0; }
+  h1 { font-size: clamp(26px, 5vw, 40px); line-height: 1.15; color: #fff; margin: 10px 0 6px; }
+  h2.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .subtitle { color: var(--ps-yellow); margin: 0 0 14px; }
+  .comment { color: var(--ps-green-light); }
+  .dim { color: var(--ps-dim); }
+
+  .cursor {
+    display: inline-block; width: .6em; height: 1.1em; vertical-align: text-bottom;
+    background: var(--ps-text); animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+
+  /* ---------- badges ---------- */
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; }
+  .badge {
+    border: 1px solid var(--ps-border); background: var(--ps-panel);
+    padding: 2px 10px; border-radius: 4px; font-size: 13px; color: var(--ps-text);
+  }
+  .badge.ok { border-color: var(--ps-green); color: var(--ps-green-light); }
+  .badge.wip { border-color: #c19c00; color: var(--ps-yellow); }
+
+  /* ---------- Format-List style output ---------- */
+  .fl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 10px 0 4px; }
+  .fl dt { color: var(--ps-dim); }
+  .fl dt::after { content: " :"; }
+  .fl dd { margin: 0; word-break: break-word; }
+  @media (max-width: 600px) {
+    .fl { grid-template-columns: 1fr; gap: 0; }
+    .fl dd { margin-bottom: 8px; padding-left: 12px; }
+  }
+
+  /* ---------- Format-Table style output ---------- */
+  .table-scroll { overflow-x: auto; margin: 10px 0; }
+  table.ft { border-collapse: collapse; min-width: 520px; width: 100%; }
+  .ft th { text-align: left; color: #fff; font-weight: 600; padding: 2px 16px 0 0; }
+  .ft thead tr:last-child th { color: var(--ps-dim); font-weight: 400; padding-bottom: 4px; }
+  .ft td { padding: 3px 16px 3px 0; vertical-align: top; }
+  .ft td.st-ok { color: var(--ps-green-light); }
+  .ft td.st-wip { color: var(--ps-yellow); }
+
+  /* ---------- code blocks ---------- */
+  pre.code {
+    background: var(--ps-bg-deep); border: 1px solid var(--ps-border); border-radius: 6px;
+    padding: 12px 14px; margin: 10px 0 16px; overflow-x: auto;
+    font-size: 13.5px; line-height: 1.55; white-space: pre;
+  }
+  .tok-cmd { color: var(--ps-cmdlet); }
+  .tok-prm { color: var(--ps-param); }
+  .tok-str { color: var(--ps-string); }
+  .tok-var { color: var(--ps-var); }
+  .tok-com { color: var(--ps-green-light); }
+
+  .step { margin: 22px 0 0; }
+  .step h3 { color: #fff; font-size: 16px; }
+  .step h3 .n { color: var(--ps-yellow); margin-right: 8px; }
+  .step p { margin: 6px 0; color: var(--ps-text); }
+
+  /* ---------- diagram ---------- */
+  pre.diagram {
+    color: var(--ps-string); background: transparent; border: 1px dashed var(--ps-border);
+    border-radius: 6px; padding: 14px; overflow-x: auto; font-size: 13px; line-height: 1.35;
+    margin: 12px 0;
+  }
+  pre.diagram b { color: var(--ps-yellow); font-weight: 600; }
+
+  /* ---------- screenshots ---------- */
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 12px; }
+  figure { margin: 0; border: 1px solid var(--ps-border); border-radius: 6px; overflow: hidden; background: var(--ps-bg-deep); }
+  figure a { display: block; }
+  figure img { display: block; width: 100%; height: auto; aspect-ratio: 16/10; object-fit: cover; object-position: top left; background: #06142b; }
+  figure img.missing { object-fit: contain; }
+  figcaption { padding: 8px 12px 10px; font-size: 13px; }
+  figcaption .ok { color: var(--ps-green-light); }
+
+  /* ---------- error records (troubleshooting) ---------- */
+  .err {
+    border-left: 3px solid var(--ps-red); background: var(--ps-error-bg);
+    padding: 10px 14px 12px; margin: 14px 0; border-radius: 0 6px 6px 0;
+  }
+  .err .e-head { color: var(--ps-red); margin: 0; word-break: break-word; }
+  .err .e-meta { color: #ff9f9f; margin: 2px 0 8px; font-size: 13px; word-break: break-word; }
+  .err .row { margin: 4px 0; }
+  .err .lbl { display: inline-block; min-width: 7.5em; color: var(--ps-dim); }
+  .err .fix .lbl { color: var(--ps-green-light); }
+  .err code, p code, li code {
+    background: rgba(255,255,255,.07); padding: 0 4px; border-radius: 3px; color: var(--ps-yellow);
+  }
+
+  ul.out { list-style: none; padding: 0; margin: 8px 0; }
+  ul.out li { padding-left: 1.4em; position: relative; margin: 4px 0; }
+  ul.out li::before { content: ">"; position: absolute; left: 0; color: var(--ps-yellow); }
+
+  .spacer { height: 10px; }
+
+  footer { text-align: center; color: var(--ps-dim); font-size: 13px; margin-top: 8px; }
+  footer a { margin: 0 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===================== HEADER ===================== -->
+  <div class="window" id="top">
+    <div class="titlebar">
+      <span class="icon">&gt;_</span>
+      <span class="title">Administrator: Windows PowerShell</span>
+      <span class="btns"><span>&#8212;</span><span>&#9744;</span><span>&#10005;</span></span>
+    </div>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#overview">Overview</a>
+      <a href="#network">Network</a>
+      <a href="#build">Build</a>
+      <a href="#verify">Verify</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#next">Next</a>
+    </nav>
+    <div class="console">
+      <p class="prompt dim">Windows PowerShell<br>Copyright (C) Emil Aguirre Herrera. All rights reserved.</p>
+      <div class="spacer"></div>
+      <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cmd">Get-Lab</span> <span class="prm">-Name</span> <span class="str">"ActiveDirectory"</span></p>
+      <h1>Windows Server 2022<br>Active Directory Home Lab</h1>
+      <p class="subtitle">A virtualized Windows domain built to practice real help desk and sysadmin work.</p>
+      <p class="prompt comment"># Home Lab 1 of 3 &middot; <a href="https://emilagui01.github.io/#labs">view all labs</a></p>
+      <div class="badges">
+        <span class="badge ok">[+] Domain Controller</span>
+        <span class="badge ok">[+] DNS</span>
+        <span class="badge ok">[+] DHCP</span>
+        <span class="badge ok">[+] OUs &amp; Users</span>
+        <span class="badge ok">[+] Domain Join</span>
+        <span class="badge wip">[~] Group Policy</span>
+        <span class="badge wip">[~] Account Troubleshooting</span>
+      </div>
+      <dl class="fl">
+        <dt>Author</dt><dd>Emil Aguirre Herrera</dd>
+        <dt>Certifications</dt><dd>CompTIA Network+, Microsoft Azure Fundamentals (AZ-900)</dd>
+        <dt>Series</dt><dd>Home Lab 1 of 3 (Active Directory &rarr; Help Desk Ticketing &rarr; PowerShell Automation)</dd>
+        <dt>Portfolio</dt><dd><a href="https://emilagui01.github.io/#labs">emilagui01.github.io</a></dd>
+        <dt>Source</dt><dd><a href="https://github.com/emilagui01">github.com/emilagui01</a></dd>
+      </dl>
+      <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cursor"></span></p>
+    </div>
+  </div>
+
+  <!-- ===================== OVERVIEW ===================== -->
+  <section class="window" id="overview" aria-labelledby="h-overview">
+    <div class="titlebar"><span class="icon">&gt;_</span><span class="title">Get-LabOverview</span><span class="btns"><span>&#8212;</span><span>&#9744;</span><span>&#10005;</span></span></div>
+    <div class="console">
+      <h2 class="sr" id="h-overview">Overview</h2>
+      <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cmd">Get-LabOverview</span> <span class="prm">|</span> <span class="cmd">Format-List</span></p>
+      <dl class="fl">
+        <dt>Purpose</dt><dd>Build and administer a working Windows domain end to end, the same way a small business network is set up, and document the problems hit along the way.</dd>
+        <dt>Hypervisor</dt><dd>Hyper-V on a Windows 11 Pro laptop (32 GB RAM)</dd>
+        <dt>Server OS</dt><dd>Windows Server 2022 Standard Evaluation (Desktop Experience)</dd>
+        <dt>Client OS</dt><dd>Windows 11 Enterprise Evaluation</dd>
+        <dt>Domain</dt><dd>emillab.local</dd>
+        <dt>Roles</dt><dd>AD DS, DNS, DHCP</dd>
+        <dt>Tools</dt><dd>PowerShell, Server Manager, Active Directory Users and Computers, DHCP console, Hyper-V Manager</dd>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ===================== NETWORK ===================== -->
+  <section class="window" id="network" aria-labelledby="h-network">
+    <div class="titlebar"><span class="icon">&gt;_</span><span class="title">Get-NetworkDesign</span><span class="btns"><span>&#8212;</span><span>&#9744;</span><span>&#10005;</span></span></div>
+    <div class="console">
+      <h2 class="sr" id="h-network">Network design</h2>
+      <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cmd">Get-NetworkDesign</span></p>
+      <p class="comment"># Isolated lab subnet behind a Hyper-V internal switch, with NAT for internet access</p>
+<pre class="diagram" aria-label="Network diagram: Internet to host laptop JARVIS, NAT gateway 192.168.50.1, internal switch LabSwitch, connecting DC01 at 192.168.50.10 and CLIENT01 at 192.168.50.100">
+        Internet
+           |
++----------+-----------------------------+
+|  <b>JARVIS</b>  (host laptop, Hyper-V)        |
+|  LabNAT  -&gt;  gateway 192.168.50.1      |
++----------+-----------------------------+
+           |
+      [ <b>LabSwitch</b> ]  internal  192.168.50.0/24
+           |
+     +-----+------------------+
+     |                        |
++----+-------------+   +------+-----------+
+| <b>DC01</b>             |   | <b>CLIENT01</b>         |
+| 192.168.50.10    |   | 192.168.50.100   |
+| static           |   | DHCP lease       |
+| AD DS, DNS, DHCP |   | Windows 11       |
++------------------+   +------------------+
+</pre>
+      <div class="table-scroll">
+        <table class="ft">
+          <thead>
+            <tr><th>Setting</th><th>Value</th></tr>
+            <tr><th>-------</th><th>-----</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Subnet</td><td>192.168.50.0/24</td></tr>
+            <tr><td>Default gateway</td><td>192.168.50.1 (host NAT)</td></tr>
+            <tr><td>DC01</td><td>192.168.50.10 (static)</td></tr>
+            <tr><td>DHCP scope</td><td>192.168.50.100 - 192.168.50.200</td></tr>
+            <tr><td>DNS for clients</td><td>192.168.50.10</td></tr>
+            <tr><td>DNS forwarder</td><td>8.8.8.8</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BUILD ===================== -->
+  <section class="window" id="build" aria-labelledby="h-build">
+    <div class="titlebar"><span class="icon">&gt;_</span><span class="title">Invoke-LabBuild</span><span class="btns"><span>&#8212;</span><span>&#9744;</span><span>&#10005;</span></span></div>
+    <div class="console">
+      <h2 class="sr" id="h-build">Build steps</h2>
+      <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cmd">Invoke-LabBuild</span> <span class="prm">-Verbose</span></p>
+
+      <div class="step">
+        <h3><span class="n">[1/6]</span>Enable Hyper-V and create the lab network</h3>
+        <p>Created an internal virtual switch and a NAT rule on the host so the lab stays isolated from my home network but can still reach the internet (needed to activate the evaluation OS).</p>
+<pre class="code ps1"># On the host laptop (JARVIS), elevated PowerShell
+Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
+New-VMSwitch -Name "LabSwitch" -SwitchType Internal
+New-NetIPAddress -IPAddress 192.168.50.1 -PrefixLength 24 -InterfaceAlias "vEthernet (LabSwitch)"
+New-NetNat -Name LabNAT -InternalIPInterfaceAddressPrefix 192.168.50.0/24</pre>
+      </div>
+
+      <div class="step">
+        <h3><span class="n">[2/6]</span>Install Windows Server 2022 and configure DC01</h3>
+        <p>Generation 2 VM, 2 vCPUs, 4 GB RAM, 60 GB disk. Renamed the server, assigned a static IP, and pointed DNS at itself in preparation for the DNS role.</p>
+<pre class="code ps1">Rename-Computer -NewName DC01 -Restart
+New-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress 192.168.50.10 -PrefixLength 24 -DefaultGateway 192.168.50.1
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses 127.0.0.1
+Set-TimeZone -Id "Central Standard Time"</pre>
+      </div>
+
+      <div class="step">
+        <h3><span class="n">[3/6]</span>Promote DC01 to a domain controller</h3>
+        <p>Installed Active Directory Domain Services and created a new forest, <code>emillab.local</code>, with integrated DNS. Took a Hyper-V checkpoint immediately after so the domain could be rolled back if later changes broke it.</p>
+<pre class="code ps1">Install-WindowsFeature AD-Domain-Services -IncludeManagementTools
+Install-ADDSForest -DomainName "emillab.local" -InstallDns
+Get-ADDomain   # verify the new domain</pre>
+      </div>
+
+      <div class="step">
+        <h3><span class="n">[4/6]</span>Configure DNS forwarding and DHCP</h3>
+        <p>Added a forwarder so domain clients can resolve internet names, then installed DHCP, authorized it in Active Directory, and created a scope that hands out the gateway and DC as DNS server.</p>
+<pre class="code ps1">Add-DnsServerForwarder -IPAddress 8.8.8.8
+Install-WindowsFeature DHCP -IncludeManagementTools
+netsh dhcp add securitygroups
+Restart-Service dhcpserver
+Add-DhcpServerInDC -DnsName dc01.emillab.local -IPAddress 192.168.50.10
+Add-DhcpServerv4Scope -Name "Lab" -StartRange 192.168.50.100 -EndRange 192.168.50.200 -SubnetMask 255.255.255.0
+Set-DhcpServerv4OptionValue -ScopeId 192.168.50.0 -Router 192.168.50.1 -DnsServer 192.168.50.10</pre>
+      </div>
+
+      <div class="step">
+        <h3><span class="n">[5/6]</span>Create OUs and user accounts</h3>
+        <p>Separated users and computers into their own organizational units so Group Policy can target each one later. Created three domain users.</p>
+<pre class="code ps1">New-ADOrganizationalUnit -Name "Lab Users"
+New-ADOrganizationalUnit -Name "Lab Computers"
+New-ADUser -Name "Jane Doe" -SamAccountName jdoe `
+  -Path "OU=Lab Users,DC=emillab,DC=local" `
+  -AccountPassword (Read-Host -AsSecureString "Password") -Enabled $true
+# Repeated for John Smith (jsmith) and Peter Parker (pparker)</pre>
+      </div>
+
+      <div class="step">
+        <h3><span class="n">[6/6]</span>Build CLIENT01 and join the domain</h3>
+        <p>Windows 11 requires TPM 2.0 and at least two cores, so the VM got a virtual TPM before install. After setup it pulled an address from DHCP, joined the domain, was renamed to match its VM name, and was moved into the Lab Computers OU.</p>
+<pre class="code ps1"># On the host
+Set-VMKeyProtector -VMName CLIENT01 -NewLocalKeyProtector
+Enable-VMTPM -VMName CLIENT01
+Set-VMProcessor -VMName CLIENT01 -Count 2
+
+# On CLIENT01
+Add-Computer -DomainName emillab.local -Credential emillab\Administrator -Restart
+Rename-Computer -NewName CLIENT01 -DomainCredential emillab\Administrator -Restart
+
+# On DC01
+Get-ADComputer CLIENT01 | Move-ADObject -TargetPath "OU=Lab Computers,DC=emillab,DC=local"</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== VERIFY ===================== -->
+  <section class="window" id="verify" aria-labelledby="h-verify">
+    <div class="titlebar"><span class="icon">&gt;_</span><span class="title">Test-Lab</span><span class="btns"><span>&#8212;</span><span>&#9744;</span><span>&#10005;</span></span></div>
+    <div class="console">
+      <h2 class="sr" id="h-verify">Verification</h2>
+      <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cmd">Test-Lab</span> <span class="prm">|</span> <span class="cmd">Format-Table</span> <span class="prm">-AutoSize</span></p>
+      <div class="table-scroll">
+        <table class="ft">
+          <thead>
+            <tr><th>Check</th><th>Result</th><th>Evidence</th></tr>
+            <tr><th>-----</th><th>------</th><th>--------</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Users exist in Lab Users OU</td><td class="st-ok">Passed</td><td>ADUC</td></tr>
+            <tr><td>CLIENT01 in Lab Computers OU</td><td class="st-ok">Passed</td><td>Get-ADComputer, ADUC</td></tr>
+            <tr><td>Client received DHCP lease</td><td class="st-ok">Passed</td><td>ipconfig, DHCP console (192.168.50.100)</td></tr>
+            <tr><td>Client registered in DNS</td><td class="st-ok">Passed</td><td>CLIENT01.emillab.local</td></tr>
+            <tr><td>Domain user can sign in</td><td class="st-ok">Passed</td><td>whoami = emillab\jdoe</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="shots">
+        <figure>
+          <a href="adds-forest.png"><img src="adds-forest.png" alt="PowerShell on DC01 showing a successful ping to 8.8.8.8, AD DS installed, and Install-ADDSForest creating emillab.local" loading="lazy"></a>
+          <figcaption><span class="ok">[+]</span> Internet confirmed through NAT, AD DS installed, promoting DC01 to a new forest</figcaption>
+        </figure>
+        <figure>
+          <a href="get-addomain.png"><img src="get-addomain.png" alt="Get-ADDomain output for emillab.local with DC01 holding the PDC emulator, RID master, and infrastructure master roles" loading="lazy"></a>
+          <figcaption><span class="ok">[+]</span> Get-ADDomain confirms emillab.local with DC01 holding the FSMO roles</figcaption>
+        </figure>
+        <figure>
+          <a href="aduc-users.png"><img src="aduc-users.png" alt="Active Directory Users and Computers showing Jane Doe, John Smith, and Peter Parker in the Lab Users OU" loading="lazy"></a>
+          <figcaption><span class="ok">[+]</span> Three domain users in the Lab Users OU</figcaption>
+        </figure>
+        <figure>
+          <a href="aduc-computers.png"><img src="aduc-computers.png" alt="PowerShell and ADUC showing CLIENT01 in the Lab Computers OU after the rename" loading="lazy"></a>
+          <figcaption><span class="ok">[+]</span> CLIENT01 renamed and moved to Lab Computers, confirmed in PowerShell and ADUC</figcaption>
+        </figure>
+        <figure>
+          <a href="whoami.png"><img src="whoami.png" alt="PowerShell on CLIENT01 showing whoami returning emillab\jdoe" loading="lazy"></a>
+          <figcaption><span class="ok">[+]</span> Signed in to CLIENT01 as domain user emillab\jdoe</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TROUBLESHOOTING ===================== -->
+  <section class="window" id="troubleshooting" aria-labelledby="h-ts">
+    <div class="titlebar"><span class="icon">&gt;_</span><span class="title">Get-TroubleshootingLog</span><span class="btns"><span>&#8212;</span><span>&#9744;</span><span>&#10005;</span></span></div>
+    <div class="console">
+      <h2 class="sr" id="h-ts">Troubleshooting log</h2>
+      <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cmd">Get-TroubleshootingLog</span></p>
+      <p class="comment"># Real problems hit during the build: symptom, root cause, and fix</p>
+
+      <div class="err">
+        <p class="e-head">New-ADUser : The specified account already exists</p>
+        <p class="e-meta">+ CategoryInfo : ResourceExists &nbsp;|&nbsp; after an earlier password complexity error</p>
+        <div class="row"><span class="lbl">Symptom</span>The first attempt to create jdoe failed on password complexity. Retrying said the account already existed.</div>
+        <div class="row"><span class="lbl">Root cause</span><code>New-ADUser</code> creates the account object first, then sets the password. When the password was rejected, a disabled account with no password was left behind.</div>
+        <div class="row fix"><span class="lbl">Fix</span>Reset the password on the existing account and enabled it with <code>Set-ADAccountPassword -Reset</code> and <code>Enable-ADAccount</code>, then confirmed <code>Enabled = True</code>.</div>
+      </div>
+
+      <div class="err">
+        <p class="e-head">Get-ADComputer : Cannot find an object with identity: 'CLIENT01'</p>
+        <p class="e-meta">+ CategoryInfo : ObjectNotFound &nbsp;|&nbsp; after a successful domain join</p>
+        <div class="row"><span class="lbl">Symptom</span>The client joined the domain, but AD had no computer named CLIENT01.</div>
+        <div class="row"><span class="lbl">Root cause</span>CLIENT01 was only the Hyper-V VM name. Windows setup had auto-named the computer DESKTOP-P26AUJ7, and that name joined the domain.</div>
+        <div class="row fix"><span class="lbl">Fix</span>Listed all computer objects with <code>Get-ADComputer -Filter *</code>, renamed the machine with <code>Rename-Computer -DomainCredential</code>, then moved it to the Lab Computers OU.</div>
+      </div>
+
+      <div class="err">
+        <p class="e-head">To sign in remotely, you need the right to sign in through Remote Desktop Services</p>
+        <p class="e-meta">+ Signing in to CLIENT01 as EMILLAB\jdoe</p>
+        <div class="row"><span class="lbl">Symptom</span>Domain Administrator could sign in to the client, but standard user jdoe was blocked.</div>
+        <div class="row"><span class="lbl">Root cause</span>Hyper-V Enhanced Session mode connects over Remote Desktop. Standard users aren't in the Remote Desktop Users group by default.</div>
+        <div class="row fix"><span class="lbl">Fix</span>Switched the VM window to a basic session to sign in at the console. The long-term fix is granting a domain group Remote Desktop rights through Group Policy (planned).</div>
+      </div>
+
+      <div class="err">
+        <p class="e-head">WARNING: DC01 clock set to the wrong time zone</p>
+        <p class="e-meta">+ Found while reviewing the server after promotion</p>
+        <div class="row"><span class="lbl">Symptom</span>The domain controller's clock was two hours behind local time.</div>
+        <div class="row"><span class="lbl">Root cause</span>The server defaulted to Pacific time. Kerberos authentication depends on clocks staying in sync across the domain.</div>
+        <div class="row fix"><span class="lbl">Fix</span><code>Set-TimeZone -Id "Central Standard Time"</code> on DC01. Domain members sync time from the DC.</div>
+      </div>
+
+      <div class="err">
+        <p class="e-head">New-ADUser : The object name has bad syntax</p>
+        <p class="e-meta">+ Typos in commands</p>
+        <div class="row"><span class="lbl">Symptom</span>Several commands failed: a misspelled cmdlet, a missing closing quote, and a stray space before a parameter.</div>
+        <div class="row"><span class="lbl">Root cause</span>The distinguished name used <code>DC-emillab</code> instead of <code>DC=emillab</code>. The error message pointed straight at the object name.</div>
+        <div class="row fix"><span class="lbl">Fix</span>Read the error text closely and corrected each command. Lesson: PowerShell errors usually tell you exactly which part is wrong.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== NEXT ===================== -->
+  <section class="window" id="next" aria-labelledby="h-next">
+    <div class="titlebar"><span class="icon">&gt;_</span><span class="title">Get-Roadmap</span><span class="btns"><span>&#8212;</span><span>&#9744;</span><span>&#10005;</span></span></div>
+    <div class="console">
+      <h2 class="sr" id="h-next">What's next</h2>
+      <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cmd">Get-Roadmap</span> <span class="prm">-Lab</span> <span class="str">"ActiveDirectory"</span> <span class="prm">|</span> <span class="cmd">Format-Table</span> <span class="prm">-AutoSize</span></p>
+      <div class="table-scroll">
+        <table class="ft">
+          <thead>
+            <tr><th>Phase</th><th>Status</th><th>Scope</th></tr>
+            <tr><th>-----</th><th>------</th><th>-----</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Domain, DNS, DHCP, OUs</td><td class="st-ok">Complete</td><td>DC01, three users, domain-joined CLIENT01</td></tr>
+            <tr><td>Group Policy</td><td class="st-wip">Next</td><td>Mapped drive, desktop restrictions, Remote Desktop rights by group</td></tr>
+            <tr><td>Account troubleshooting</td><td class="st-wip">Planned</td><td>Lockouts, password resets, disabled accounts, wrong-OU issues</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cmd">Get-HomeLabSeries</span> <span class="prm">|</span> <span class="cmd">Format-Table</span> <span class="prm">-AutoSize</span></p>
+      <div class="table-scroll">
+        <table class="ft">
+          <thead>
+            <tr><th>#</th><th>Lab</th><th>Status</th><th>Notes</th></tr>
+            <tr><th>-</th><th>---</th><th>------</th><th>-----</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td>Windows Server 2022 Active Directory</td><td class="st-wip">In Progress</td><td>This page</td></tr>
+            <tr><td>2</td><td>Help Desk Ticketing System</td><td class="st-wip">Planned</td><td>Self-hosted ticketing with queues, SLAs, and a knowledge base; tickets drawn from this domain</td></tr>
+            <tr><td>3</td><td>PowerShell Automation Scripts</td><td class="st-wip">Planned</td><td>Bulk user provisioning and onboarding, run against this domain</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cmd">Start-Process</span> <a href="https://emilagui01.github.io/#labs" class="str">"https://emilagui01.github.io/#labs"</a></p>
+      <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cursor"></span></p>
+    </div>
+  </section>
+
+  <footer>
+    Emil Aguirre Herrera &middot;
+    <a href="https://emilagui01.github.io/#labs">All labs</a>
+    <a href="https://github.com/emilagui01">GitHub</a>
+    <a href="https://www.linkedin.com/in/emilagui01">LinkedIn</a>
+  </footer>
+</div>
+
+<script>
+  // Minimal PowerShell syntax highlighting for code blocks
+  (function () {
+    function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+    var rules = [
+      { re: /#[^\n]*/y, cls: "tok-com" },
+      { re: /"[^"\n]*"/y, cls: "tok-str" },
+      { re: /\$[A-Za-z_][\w]*/y, cls: "tok-var" },
+      { re: /\b[A-Z][a-z]+-[A-Z][A-Za-z0-9]+\b(?!-)/y, cls: "tok-cmd" },
+      { re: /(?<![\w=])-[A-Za-z][A-Za-z0-9]*/y, cls: "tok-prm" }
+    ];
+    document.querySelectorAll("pre.code.ps1").forEach(function (pre) {
+      var src = pre.textContent, out = "", i = 0;
+      while (i < src.length) {
+        var matched = false;
+        for (var r = 0; r < rules.length; r++) {
+          var rule = rules[r];
+          rule.re.lastIndex = i;
+          var m = rule.re.exec(src);
+          if (m && m.index === i) {
+            out += '<span class="' + rule.cls + '">' + esc(m[0]) + "</span>";
+            i += m[0].length; matched = true; break;
+          }
+        }
+        if (!matched) { out += esc(src[i]); i++; }
+      }
+      pre.innerHTML = out;
+    });
+
+    // Show a themed placeholder if a screenshot file is missing
+    var placeholder = "data:image/svg+xml;utf8," + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200" fill="#06142b"/>' +
+      '<text x="160" y="96" fill="#9fb3d1" font-family="monospace" font-size="13" text-anchor="middle">Screenshot coming soon</text>' +
+      '<text x="160" y="118" fill="#ffff66" font-family="monospace" font-size="11" text-anchor="middle">Test-Path = False</text></svg>');
+    document.querySelectorAll("figure img").forEach(function (img) {
+      img.addEventListener("error", function () {
+        img.src = placeholder; img.classList.add("missing");
+        var a = img.closest("a"); if (a) a.removeAttribute("href");
+      }, { once: true });
+    });
+  })();
+</script>
+</body>
+</html>
