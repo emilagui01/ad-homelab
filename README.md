@@ -2,7 +2,7 @@
 
 *Home Lab 1 of 3 · [view all labs](https://emilagui01.github.io/#labs)*
 
-A virtualized Windows domain built in Hyper-V to practice real help desk and sysadmin work: domain controller setup, DNS, DHCP, organizational units, user accounts, and joining a Windows 11 client to the domain.
+A virtualized Windows domain built in Hyper-V to practice real help desk and sysadmin work: domain controller setup, DNS, DHCP, organizational units, user accounts, Group Policy, and joining a Windows 11 client to the domain.
 
 **Live writeup:** https://emilagui01.github.io/ad-homelab/
 **Portfolio:** https://emilagui01.github.io/#labs
@@ -25,7 +25,8 @@ A virtualized Windows domain built in Hyper-V to practice real help desk and sys
 - [x] DHCP server authorized in AD with a scope for clients
 - [x] Lab Users and Lab Computers OUs with three domain users
 - [x] Windows 11 client (virtual TPM) joined to the domain and signed in as a domain user
-- [ ] Group Policy: mapped drive, desktop restrictions, Remote Desktop rights by group
+- [x] Lab Staff security group and a file share with share + NTFS permissions
+- [x] Group Policy: S: drive map, Control Panel restriction, Remote Desktop rights for Lab Staff
 - [ ] Account troubleshooting scenarios: lockouts, password resets, disabled accounts
 
 ## Home lab series
@@ -42,7 +43,8 @@ A virtualized Windows domain built in Hyper-V to practice real help desk and sys
 |---|---|---|
 | "Account already exists" after a failed `New-ADUser` | Account object is created before the password is set, so a password complexity failure leaves a disabled account behind | `Set-ADAccountPassword -Reset` and `Enable-ADAccount` |
 | `Get-ADComputer CLIENT01` not found after domain join | Hyper-V VM name differs from the Windows computer name (auto-named DESKTOP-P26AUJ7) | Found with `Get-ADComputer -Filter *`, renamed with `Rename-Computer -DomainCredential` |
-| Domain user blocked from signing in to the VM | Hyper-V Enhanced Session uses Remote Desktop, which standard users lack by default | Basic session for now; Group Policy fix planned |
+| Domain user blocked from signing in to the VM | Hyper-V Enhanced Session uses Remote Desktop, which standard users lack by default | Basic session as a workaround, then a GPO adding Lab Staff to Remote Desktop Users |
+| RDP GPO applied but group stayed empty | Group name was typed instead of picking the built-in group from the dropdown | Reselected `Remote Desktop Users (built-in)` and resolved Lab Staff with the browse button |
 | DC clock on the wrong time zone | Server defaulted to Pacific time; Kerberos depends on synced clocks | `Set-TimeZone -Id "Central Standard Time"` |
 
 The full build steps, commands, and screenshots are on the [writeup page](https://emilagui01.github.io/ad-homelab/).
@@ -57,6 +59,10 @@ get-addomain.png      Domain verification
 aduc-users.png        Users in the Lab Users OU
 aduc-computers.png    CLIENT01 in the Lab Computers OU
 whoami.png            Domain user signed in on CLIENT01
+gpmc-gpos.png         GPOs linked in Group Policy Management
+gpresult-jdoe.png     User GPOs applied to jdoe
+drive-restriction.png S: drive and Control Panel restriction
+rdp-group.png         Lab Staff in Remote Desktop Users
 ```
 
 ---

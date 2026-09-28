@@ -209,6 +209,7 @@
       <a href="#network">Network</a>
       <a href="#build">Build</a>
       <a href="#verify">Verify</a>
+      <a href="#gpo">Group Policy</a>
       <a href="#troubleshooting">Troubleshooting</a>
       <a href="#next">Next</a>
     </nav>
@@ -225,7 +226,7 @@
         <span class="badge ok">[+] DHCP</span>
         <span class="badge ok">[+] OUs &amp; Users</span>
         <span class="badge ok">[+] Domain Join</span>
-        <span class="badge wip">[~] Group Policy</span>
+        <span class="badge ok">[+] Group Policy</span>
         <span class="badge wip">[~] Account Troubleshooting</span>
       </div>
       <dl class="fl">
@@ -251,8 +252,8 @@
         <dt>Server OS</dt><dd>Windows Server 2022 Standard Evaluation (Desktop Experience)</dd>
         <dt>Client OS</dt><dd>Windows 11 Enterprise Evaluation</dd>
         <dt>Domain</dt><dd>emillab.local</dd>
-        <dt>Roles</dt><dd>AD DS, DNS, DHCP</dd>
-        <dt>Tools</dt><dd>PowerShell, Server Manager, Active Directory Users and Computers, DHCP console, Hyper-V Manager</dd>
+        <dt>Roles</dt><dd>AD DS, DNS, DHCP, File Server, Group Policy</dd>
+        <dt>Tools</dt><dd>PowerShell, Server Manager, Active Directory Users and Computers, DHCP console, Group Policy Management, Hyper-V Manager</dd>
       </dl>
     </div>
   </section>
@@ -424,6 +425,86 @@ Get-ADComputer CLIENT01 | Move-ADObject -TargetPath "OU=Lab Computers,DC=emillab
     </div>
   </section>
 
+  <!-- ===================== GROUP POLICY ===================== -->
+  <section class="window" id="gpo" aria-labelledby="h-gpo">
+    <div class="titlebar"><span class="icon">&gt;_</span><span class="title">Get-GPO -All</span><span class="btns"><span>&#8212;</span><span>&#9744;</span><span>&#10005;</span></span></div>
+    <div class="console">
+      <h2 class="sr" id="h-gpo">Group Policy</h2>
+      <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cmd">Get-GPO</span> <span class="prm">-All</span> <span class="prm">|</span> <span class="cmd">Format-Table</span> <span class="prm">-AutoSize</span></p>
+      <p class="comment"># Phase 2: permissions assigned to a group, settings delivered by GPOs linked to OUs</p>
+      <div class="table-scroll">
+        <table class="ft">
+          <thead>
+            <tr><th>GPO</th><th>Linked to</th><th>What it does</th></tr>
+            <tr><th>---</th><th>---------</th><th>------------</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Lab Users - Drive Map</td><td>Lab Users OU</td><td>Maps \\DC01\LabShare as drive S: at sign-in</td></tr>
+            <tr><td>Lab Users - Restrictions</td><td>Lab Users OU</td><td>Blocks Control Panel and PC settings</td></tr>
+            <tr><td>Lab Computers - RDP Users</td><td>Lab Computers OU</td><td>Adds the Lab Staff group to the local Remote Desktop Users group</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="step">
+        <h3><span class="n">[1/4]</span>Create a security group</h3>
+        <p>Permissions go to a group, not to individual users, so adding or removing staff is a single change.</p>
+<pre class="code ps1">New-ADGroup -Name "Lab Staff" -GroupScope Global -GroupCategory Security -Path "OU=Lab Users,DC=emillab,DC=local"
+Add-ADGroupMember -Identity "Lab Staff" -Members jdoe,jsmith,pparker</pre>
+      </div>
+
+      <div class="step">
+        <h3><span class="n">[2/4]</span>Create a file share with share and NTFS permissions</h3>
+        <p>Access to a network share requires both the share permission and the NTFS permission to allow it, and the more restrictive of the two wins.</p>
+<pre class="code ps1">New-Item -Path "C:\Shares\LabShare" -ItemType Directory
+New-SmbShare -Name "LabShare" -Path "C:\Shares\LabShare" -FullAccess "EMILLAB\Domain Admins" -ChangeAccess "EMILLAB\Lab Staff"
+icacls "C:\Shares\LabShare" /grant "EMILLAB\Lab Staff:(OI)(CI)M"</pre>
+      </div>
+
+      <div class="step">
+        <h3><span class="n">[3/4]</span>Build and link the GPOs</h3>
+        <p>The Control Panel restriction was scripted in PowerShell. The drive map and local group membership use Group Policy Preferences, configured in the Group Policy Management Editor.</p>
+<pre class="code ps1"># Restrictions GPO (scripted)
+New-GPO -Name "Lab Users - Restrictions" | New-GPLink -Target "OU=Lab Users,DC=emillab,DC=local"
+Set-GPRegistryValue -Name "Lab Users - Restrictions" `
+  -Key "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" `
+  -ValueName "NoControlPanel" -Type DWord -Value 1
+
+# Drive Map GPO (GUI): User Configuration &gt; Preferences &gt; Windows Settings &gt; Drive Maps
+#   Update, \\DC01\LabShare, drive S:, reconnect
+# RDP Users GPO (GUI): Computer Configuration &gt; Preferences &gt; Control Panel Settings &gt; Local Users and Groups
+#   Update "Remote Desktop Users (built-in)", add EMILLAB\Lab Staff</pre>
+      </div>
+
+      <div class="step">
+        <h3><span class="n">[4/4]</span>Apply and verify on CLIENT01</h3>
+<pre class="code ps1">gpupdate /force
+gpresult /r /scope computer                 # Lab Computers - RDP Users applied
+Get-LocalGroupMember "Remote Desktop Users" # EMILLAB\Lab Staff
+gpresult /r                                 # as jdoe: both Lab Users GPOs applied</pre>
+      </div>
+
+      <div class="shots">
+        <figure>
+          <a href="gpmc-gpos.png"><img src="gpmc-gpos.png" alt="Group Policy Management showing Lab Computers - RDP Users linked to Lab Computers and the Drive Map and Restrictions GPOs linked to Lab Users" loading="lazy"></a>
+          <figcaption><span class="ok">[+]</span> Three GPOs linked to their OUs in Group Policy Management</figcaption>
+        </figure>
+        <figure>
+          <a href="gpresult-jdoe.png"><img src="gpresult-jdoe.png" alt="gpresult for EMILLAB\jdoe on CLIENT01 showing Lab Users - Restrictions and Lab Users - Drive Map applied" loading="lazy"></a>
+          <figcaption><span class="ok">[+]</span> gpresult confirms both user GPOs applied to emillab\jdoe</figcaption>
+        </figure>
+        <figure>
+          <a href="drive-restriction.png"><img src="drive-restriction.png" alt="File Explorer showing LabShare mapped as S: with a Test Folder created by jdoe, and a Restrictions dialog blocking Control Panel" loading="lazy"></a>
+          <figcaption><span class="ok">[+]</span> S: drive mapped and writable; Control Panel blocked by policy</figcaption>
+        </figure>
+        <figure>
+          <a href="rdp-group.png"><img src="rdp-group.png" alt="Get-LocalGroupMember on CLIENT01 showing EMILLAB\Lab Staff in the Remote Desktop Users group, in an Enhanced Session window" loading="lazy"></a>
+          <figcaption><span class="ok">[+]</span> Lab Staff added to Remote Desktop Users by GPO; Enhanced Session now works</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
   <!-- ===================== TROUBLESHOOTING ===================== -->
   <section class="window" id="troubleshooting" aria-labelledby="h-ts">
     <div class="titlebar"><span class="icon">&gt;_</span><span class="title">Get-TroubleshootingLog</span><span class="btns"><span>&#8212;</span><span>&#9744;</span><span>&#10005;</span></span></div>
@@ -453,7 +534,15 @@ Get-ADComputer CLIENT01 | Move-ADObject -TargetPath "OU=Lab Computers,DC=emillab
         <p class="e-meta">+ Signing in to CLIENT01 as EMILLAB\jdoe</p>
         <div class="row"><span class="lbl">Symptom</span>Domain Administrator could sign in to the client, but standard user jdoe was blocked.</div>
         <div class="row"><span class="lbl">Root cause</span>Hyper-V Enhanced Session mode connects over Remote Desktop. Standard users aren't in the Remote Desktop Users group by default.</div>
-        <div class="row fix"><span class="lbl">Fix</span>Switched the VM window to a basic session to sign in at the console. The long-term fix is granting a domain group Remote Desktop rights through Group Policy (planned).</div>
+        <div class="row fix"><span class="lbl">Fix</span>Used a basic session as a temporary workaround, then fixed it properly in Phase 2: a GPO linked to Lab Computers adds the Lab Staff group to Remote Desktop Users, so every domain-joined machine gets the right automatically.</div>
+      </div>
+
+      <div class="err">
+        <p class="e-head">Get-LocalGroupMember "Remote Desktop Users" : (no output)</p>
+        <p class="e-meta">+ gpresult showed Lab Computers - RDP Users applied, but jdoe was still blocked</p>
+        <div class="row"><span class="lbl">Symptom</span>The GPO appeared under Applied Group Policy Objects, but the local Remote Desktop Users group on CLIENT01 was still empty.</div>
+        <div class="row"><span class="lbl">Root cause</span>The group name was typed into the Local Group preference instead of picking <code>Remote Desktop Users (built-in)</code> from the dropdown. The built-in option targets the group by its well-known SID; a typed name has to match exactly.</div>
+        <div class="row fix"><span class="lbl">Fix</span>Reselected the built-in group from the dropdown and added Lab Staff with the browse button so the name resolved. After <code>gpupdate /force</code>, Lab Staff appeared in the group. Lesson: <code>gpresult</code> proves a GPO arrived, not that its settings are correct.</div>
       </div>
 
       <div class="err">
@@ -488,8 +577,8 @@ Get-ADComputer CLIENT01 | Move-ADObject -TargetPath "OU=Lab Computers,DC=emillab
           </thead>
           <tbody>
             <tr><td>Domain, DNS, DHCP, OUs</td><td class="st-ok">Complete</td><td>DC01, three users, domain-joined CLIENT01</td></tr>
-            <tr><td>Group Policy</td><td class="st-wip">Next</td><td>Mapped drive, desktop restrictions, Remote Desktop rights by group</td></tr>
-            <tr><td>Account troubleshooting</td><td class="st-wip">Planned</td><td>Lockouts, password resets, disabled accounts, wrong-OU issues</td></tr>
+            <tr><td>Group Policy</td><td class="st-ok">Complete</td><td>Lab Staff group, file share, drive map, Control Panel restriction, RDP rights by group</td></tr>
+            <tr><td>Account troubleshooting</td><td class="st-wip">Next</td><td>Lockouts, password resets, disabled accounts, wrong-OU issues</td></tr>
           </tbody>
         </table>
       </div>
