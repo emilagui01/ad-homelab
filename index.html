@@ -190,6 +190,20 @@
 
   .spacer { height: 10px; }
 
+  /* ---------- help desk tickets ---------- */
+  .ticket {
+    border: 1px solid var(--ps-border); border-left: 3px solid var(--ps-green);
+    background: var(--ps-bg-deep); border-radius: 0 6px 6px 0;
+    padding: 12px 16px 16px; margin: 18px 0;
+  }
+  .ticket .t-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; margin: 0 0 6px; }
+  .ticket .t-id { color: var(--ps-yellow); font-weight: 700; }
+  .ticket .t-title { color: #fff; font-weight: 700; }
+  .ticket .t-state { color: var(--ps-green-light); font-size: 13px; border: 1px solid var(--ps-green); border-radius: 4px; padding: 0 8px; }
+  .ticket .fl { margin-top: 4px; }
+  .ticket code { background: rgba(255,255,255,.07); padding: 0 4px; border-radius: 3px; color: var(--ps-yellow); }
+  .ticket pre.code { margin: 10px 0 12px; }
+
   footer { text-align: center; color: var(--ps-dim); font-size: 13px; margin-top: 8px; }
   footer a { margin: 0 6px; }
 </style>
@@ -210,6 +224,7 @@
       <a href="#build">Build</a>
       <a href="#verify">Verify</a>
       <a href="#gpo">Group Policy</a>
+      <a href="#tickets">Tickets</a>
       <a href="#troubleshooting">Troubleshooting</a>
       <a href="#next">Next</a>
     </nav>
@@ -219,7 +234,7 @@
       <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cmd">Get-Lab</span> <span class="prm">-Name</span> <span class="str">"ActiveDirectory"</span></p>
       <h1>Windows Server 2022<br>Active Directory Home Lab</h1>
       <p class="subtitle">A virtualized Windows domain built to practice real help desk and sysadmin work.</p>
-      <p class="prompt comment"># Home Lab 1 of 3 &middot; <a href="https://emilagui01.github.io/#labs">view all labs</a></p>
+      <p class="prompt comment"># Home Lab 1 of 3 &middot; Complete &middot; <a href="https://emilagui01.github.io/#labs">view all labs</a></p>
       <div class="badges">
         <span class="badge ok">[+] Domain Controller</span>
         <span class="badge ok">[+] DNS</span>
@@ -227,11 +242,12 @@
         <span class="badge ok">[+] OUs &amp; Users</span>
         <span class="badge ok">[+] Domain Join</span>
         <span class="badge ok">[+] Group Policy</span>
-        <span class="badge wip">[~] Account Troubleshooting</span>
+        <span class="badge ok">[+] Account Troubleshooting</span>
       </div>
       <dl class="fl">
         <dt>Author</dt><dd>Emil Aguirre Herrera</dd>
         <dt>Certifications</dt><dd>CompTIA Network+, Microsoft Azure Fundamentals (AZ-900)</dd>
+        <dt>Status</dt><dd class="comment">Complete</dd>
         <dt>Series</dt><dd>Home Lab 1 of 3 (Active Directory &rarr; Help Desk Ticketing &rarr; PowerShell Automation)</dd>
         <dt>Portfolio</dt><dd><a href="https://emilagui01.github.io/#labs">emilagui01.github.io</a></dd>
         <dt>Source</dt><dd><a href="https://github.com/emilagui01">github.com/emilagui01</a></dd>
@@ -505,13 +521,150 @@ gpresult /r                                 # as jdoe: both Lab Users GPOs appli
     </div>
   </section>
 
+  <!-- ===================== TICKETS ===================== -->
+  <section class="window" id="tickets" aria-labelledby="h-tickets">
+    <div class="titlebar"><span class="icon">&gt;_</span><span class="title">Get-HelpdeskTicket -Status Resolved</span><span class="btns"><span>&#8212;</span><span>&#9744;</span><span>&#10005;</span></span></div>
+    <div class="console">
+      <h2 class="sr" id="h-tickets">Help desk tickets</h2>
+      <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cmd">Get-HelpdeskTicket</span> <span class="prm">-Status</span> <span class="str">"Resolved"</span> <span class="prm">|</span> <span class="cmd">Format-Table</span> <span class="prm">-AutoSize</span></p>
+      <p class="comment"># Phase 3: the most common account tickets, broken on purpose and resolved end to end</p>
+      <div class="table-scroll">
+        <table class="ft">
+          <thead>
+            <tr><th>Ticket</th><th>User</th><th>Issue</th><th>Fix</th></tr>
+            <tr><th>------</th><th>----</th><th>-----</th><th>---</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>INC-0001</td><td>jdoe</td><td>Account locked out</td><td>Unlock-ADAccount</td></tr>
+            <tr><td>INC-0002</td><td>pparker</td><td>Forgotten password</td><td>Temp password + change at sign-in</td></tr>
+            <tr><td>INC-0003</td><td>jsmith</td><td>Account disabled</td><td>Enable-ADAccount</td></tr>
+            <tr><td>INC-0004</td><td>pparker</td><td>Policies not applying</td><td>Moved back to Lab Users OU</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <article class="ticket">
+        <p class="t-head"><span class="t-id">INC-0001</span><span class="t-title">&quot;I'm locked out of my computer&quot;</span><span class="t-state">Resolved</span></p>
+        <dl class="fl">
+        <dt>User</dt><dd>Jane Doe (jdoe)</dd>
+        <dt>Symptom</dt><dd>Sign-in on CLIENT01 fails with &quot;The referenced account is currently locked out and may not be logged on to.&quot;</dd>
+        <dt>Setup</dt><dd>Domain lockout policy set to 5 bad attempts, 15-minute lockout and observation window. Five wrong passwords entered on CLIENT01.</dd>
+        <dt>Diagnosis</dt><dd><code>Get-ADUser</code> showed LockedOut = True and BadLogonCount = 5. Security event 4740 on DC01 identified the lockout source as <code>CLIENT01</code>, the check used to track down a device with a stale saved password.</dd>
+        <dt>Resolution</dt><dd><code>Unlock-ADAccount jdoe</code>; user signed in with the correct password.</dd>
+        </dl>
+<pre class="code ps1"># Lockout policy (Default Domain Policy)
+Set-ADDefaultDomainPasswordPolicy -Identity emillab.local -LockoutThreshold 5 `
+  -LockoutDuration 00:15:00 -LockoutObservationWindow 00:15:00
+
+# Diagnose
+Get-ADUser jdoe -Properties LockedOut, BadLogonCount, LockoutTime |
+  Select-Object Name, LockedOut, BadLogonCount, LockoutTime
+Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4740} -MaxEvents 5 |
+  Format-List TimeCreated, Message   # Caller Computer Name: CLIENT01
+
+# Fix
+Unlock-ADAccount jdoe</pre>
+      <div class="shots">
+        <figure>
+          <a href="t1-lockout-policy.png"><img src="t1-lockout-policy.png" alt="Get-ADDefaultDomainPasswordPolicy showing LockoutThreshold 5 and 15-minute lockout duration and observation window" loading="lazy"></a>
+          <figcaption>Lockout policy: 5 attempts, 15 minutes</figcaption>
+        </figure>
+        <figure>
+          <a href="t1-locked-out.png"><img src="t1-locked-out.png" alt="CLIENT01 sign-in screen saying the referenced account is currently locked out" loading="lazy"></a>
+          <figcaption>What the user sees</figcaption>
+        </figure>
+        <figure>
+          <a href="t1-diagnose-unlock.png"><img src="t1-diagnose-unlock.png" alt="PowerShell on DC01 showing jdoe LockedOut True with 5 bad logons, event 4740 with caller computer CLIENT01, and Unlock-ADAccount" loading="lazy"></a>
+          <figcaption>LockedOut = True, event 4740 points to CLIENT01, account unlocked</figcaption>
+        </figure>
+        <figure>
+          <a href="t1-signed-in.png"><img src="t1-signed-in.png" alt="jdoe signed in to CLIENT01 with the Start menu open after the account was unlocked" loading="lazy"></a>
+          <figcaption>jdoe signed back in</figcaption>
+        </figure>
+      </div>
+      </article>
+      <article class="ticket">
+        <p class="t-head"><span class="t-id">INC-0002</span><span class="t-title">&quot;I forgot my password&quot;</span><span class="t-state">Resolved</span></p>
+        <dl class="fl">
+        <dt>User</dt><dd>Peter Parker (pparker)</dd>
+        <dt>Symptom</dt><dd>User can't remember their password.</dd>
+        <dt>Diagnosis</dt><dd>Identity confirmed (lab scenario). No lockout or disabled flag, so a password reset was the right fix.</dd>
+        <dt>Resolution</dt><dd>Set a temporary password and required a change at next sign-in, so the help desk never knows the user's real password. The first temporary password was rejected: the domain's complexity rules apply to admin resets too. At sign-in, Windows showed &quot;The user's password must be changed before signing in&quot; and prompted for a new one. Tested in a basic VM session, since Remote Desktop-style sessions often can't complete a forced change at sign-in.</dd>
+        </dl>
+<pre class="code ps1">Set-ADAccountPassword pparker -Reset -NewPassword (Read-Host -AsSecureString "Temp password")
+Set-ADUser pparker -ChangePasswordAtLogon $true</pre>
+      <div class="shots">
+        <figure>
+          <a href="t2-reset-password.png"><img src="t2-reset-password.png" alt="PowerShell showing a first password reset rejected for complexity, then a successful reset and ChangePasswordAtLogon set to true" loading="lazy"></a>
+          <figcaption>Short temp password rejected by policy, then reset with change-at-sign-in</figcaption>
+        </figure>
+        <figure>
+          <a href="t2-must-change.png"><img src="t2-must-change.png" alt="CLIENT01 sign-in screen saying the user's password must be changed before signing in" loading="lazy"></a>
+          <figcaption>User forced to choose a new password</figcaption>
+        </figure>
+      </div>
+      </article>
+      <article class="ticket">
+        <p class="t-head"><span class="t-id">INC-0003</span><span class="t-title">&quot;It says my account has been disabled&quot;</span><span class="t-state">Resolved</span></p>
+        <dl class="fl">
+        <dt>User</dt><dd>John Smith (jsmith)</dd>
+        <dt>Symptom</dt><dd>Sign-in fails with &quot;Your account has been disabled. Please see your system administrator.&quot;</dd>
+        <dt>Setup</dt><dd>Account disabled with <code>Disable-ADAccount jsmith</code> to simulate an offboarding mistake.</dd>
+        <dt>Diagnosis</dt><dd><code>Search-ADAccount -AccountDisabled -UsersOnly</code> listed jsmith alongside the built-in Guest and krbtgt accounts, which are disabled by design. <code>Get-ADUser</code> confirmed Enabled = False.</dd>
+        <dt>Resolution</dt><dd><code>Enable-ADAccount jsmith</code>. In a real environment, confirm with the manager or HR before re-enabling an account.</dd>
+        </dl>
+<pre class="code ps1">Search-ADAccount -AccountDisabled -UsersOnly | Select-Object Name, SamAccountName
+Get-ADUser jsmith | Select-Object Name, Enabled
+Enable-ADAccount jsmith</pre>
+      <div class="shots">
+        <figure>
+          <a href="t3-disabled.png"><img src="t3-disabled.png" alt="CLIENT01 sign-in screen saying your account has been disabled, please see your system administrator" loading="lazy"></a>
+          <figcaption>What the user sees</figcaption>
+        </figure>
+        <figure>
+          <a href="t3-diagnose-enable.png"><img src="t3-diagnose-enable.png" alt="PowerShell showing Search-ADAccount listing Guest, krbtgt and John Smith as disabled, Enabled False, then Enable-ADAccount jsmith" loading="lazy"></a>
+          <figcaption>Disabled account found and re-enabled</figcaption>
+        </figure>
+      </div>
+      </article>
+      <article class="ticket">
+        <p class="t-head"><span class="t-id">INC-0004</span><span class="t-title">&quot;My settings stopped working&quot;</span><span class="t-state">Resolved</span></p>
+        <dl class="fl">
+        <dt>User</dt><dd>Peter Parker (pparker)</dd>
+        <dt>Symptom</dt><dd>User signs in normally, but Control Panel is no longer blocked. Nothing looks broken from the user's side.</dd>
+        <dt>Setup</dt><dd>User object moved from the Lab Users OU to the default Users container.</dd>
+        <dt>Diagnosis</dt><dd><code>gpresult /r</code> as pparker showed <code>CN=Peter Parker,CN=Users</code> and no Lab Users GPOs applied. The S: drive was still mapped: it is a Group Policy <em>Preference</em>, which stays in place after its GPO stops applying unless &quot;Remove this item when it is no longer applied&quot; is set. The Control Panel block is a <em>Policy</em>, which Windows removes automatically. Remote Desktop kept working because that GPO targets the computer and the Lab Staff group, not the user's OU.</dd>
+        <dt>Resolution</dt><dd>Moved the account back to Lab Users. After signing out and back in, <code>gpresult</code> showed both GPOs applied and Control Panel was blocked again.</dd>
+        </dl>
+<pre class="code ps1"># Diagnose (as the user, on CLIENT01)
+gpresult /r   # CN=Peter Parker,CN=Users,...  -> Lab Users GPOs missing
+
+# Fix (on DC01)
+Get-ADUser pparker | Move-ADObject -TargetPath "OU=Lab Users,DC=emillab,DC=local"</pre>
+      <div class="shots">
+        <figure>
+          <a href="t4-symptom.png"><img src="t4-symptom.png" alt="CLIENT01 as pparker with Control Panel open and the S: drive still mapped in File Explorer" loading="lazy"></a>
+          <figcaption>Control Panel opens; S: stays mapped as a preference</figcaption>
+        </figure>
+        <figure>
+          <a href="t4-gpresult-wrong-ou.png"><img src="t4-gpresult-wrong-ou.png" alt="gpresult for pparker showing CN=Peter Parker,CN=Users,DC=emillab,DC=local under user settings" loading="lazy"></a>
+          <figcaption>gpresult shows the user in the wrong container</figcaption>
+        </figure>
+        <figure>
+          <a href="t4-fixed.png"><img src="t4-fixed.png" alt="gpresult for pparker showing OU=Lab Users with Lab Users - Restrictions and Lab Users - Drive Map applied, and Control Panel blocked again" loading="lazy"></a>
+          <figcaption>Back in Lab Users: both GPOs applied, Control Panel blocked</figcaption>
+        </figure>
+      </div>
+      </article>
+    </div>
+  </section>
+
   <!-- ===================== TROUBLESHOOTING ===================== -->
   <section class="window" id="troubleshooting" aria-labelledby="h-ts">
     <div class="titlebar"><span class="icon">&gt;_</span><span class="title">Get-TroubleshootingLog</span><span class="btns"><span>&#8212;</span><span>&#9744;</span><span>&#10005;</span></span></div>
     <div class="console">
       <h2 class="sr" id="h-ts">Troubleshooting log</h2>
       <p class="prompt"><span class="ps">PS C:\Labs\emillab&gt; </span><span class="cmd">Get-TroubleshootingLog</span></p>
-      <p class="comment"># Real problems hit during the build: symptom, root cause, and fix</p>
+      <p class="comment"># Unplanned problems hit during the build: symptom, root cause, and fix</p>
 
       <div class="err">
         <p class="e-head">New-ADUser : The specified account already exists</p>
@@ -578,7 +731,7 @@ gpresult /r                                 # as jdoe: both Lab Users GPOs appli
           <tbody>
             <tr><td>Domain, DNS, DHCP, OUs</td><td class="st-ok">Complete</td><td>DC01, three users, domain-joined CLIENT01</td></tr>
             <tr><td>Group Policy</td><td class="st-ok">Complete</td><td>Lab Staff group, file share, drive map, Control Panel restriction, RDP rights by group</td></tr>
-            <tr><td>Account troubleshooting</td><td class="st-wip">Next</td><td>Lockouts, password resets, disabled accounts, wrong-OU issues</td></tr>
+            <tr><td>Account troubleshooting</td><td class="st-ok">Complete</td><td>Four tickets: lockout, password reset, disabled account, wrong OU</td></tr>
           </tbody>
         </table>
       </div>
@@ -590,8 +743,8 @@ gpresult /r                                 # as jdoe: both Lab Users GPOs appli
             <tr><th>-</th><th>---</th><th>------</th><th>-----</th></tr>
           </thead>
           <tbody>
-            <tr><td>1</td><td>Windows Server 2022 Active Directory</td><td class="st-wip">In Progress</td><td>This page</td></tr>
-            <tr><td>2</td><td>Help Desk Ticketing System</td><td class="st-wip">Planned</td><td>Self-hosted ticketing with queues, SLAs, and a knowledge base; tickets drawn from this domain</td></tr>
+            <tr><td>1</td><td>Windows Server 2022 Active Directory</td><td class="st-ok">Complete</td><td>This page</td></tr>
+            <tr><td>2</td><td>Help Desk Ticketing System</td><td class="st-wip">Next</td><td>Self-hosted ticketing with queues, SLAs, and a knowledge base; the four tickets above become its first entries</td></tr>
             <tr><td>3</td><td>PowerShell Automation Scripts</td><td class="st-wip">Planned</td><td>Bulk user provisioning and onboarding, run against this domain</td></tr>
           </tbody>
         </table>

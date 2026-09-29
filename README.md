@@ -1,8 +1,8 @@
 # Windows Server 2022 Active Directory Home Lab
 
-*Home Lab 1 of 3 · [view all labs](https://emilagui01.github.io/#labs)*
+*Home Lab 1 of 3 · **Complete** · [view all labs](https://emilagui01.github.io/#labs)*
 
-A virtualized Windows domain built in Hyper-V to practice real help desk and sysadmin work: domain controller setup, DNS, DHCP, organizational units, user accounts, Group Policy, and joining a Windows 11 client to the domain.
+A virtualized Windows domain built in Hyper-V to practice real help desk and sysadmin work: domain controller setup, DNS, DHCP, organizational units, user accounts, Group Policy, account troubleshooting, and joining a Windows 11 client to the domain.
 
 **Live writeup:** https://emilagui01.github.io/ad-homelab/
 **Portfolio:** https://emilagui01.github.io/#labs
@@ -27,15 +27,24 @@ A virtualized Windows domain built in Hyper-V to practice real help desk and sys
 - [x] Windows 11 client (virtual TPM) joined to the domain and signed in as a domain user
 - [x] Lab Staff security group and a file share with share + NTFS permissions
 - [x] Group Policy: S: drive map, Control Panel restriction, Remote Desktop rights for Lab Staff
-- [ ] Account troubleshooting scenarios: lockouts, password resets, disabled accounts
+- [x] Account troubleshooting: four help desk tickets resolved end to end
 
 ## Home lab series
 
 | # | Lab | Status |
 |---|---|---|
-| 1 | Windows Server 2022 Active Directory (this repo) | In progress |
-| 2 | Help Desk Ticketing System | Planned |
+| 1 | Windows Server 2022 Active Directory (this repo) | Complete |
+| 2 | Help Desk Ticketing System | Next |
 | 3 | PowerShell Automation Scripts (bulk provisioning on this domain) | Planned |
+
+## Help desk tickets
+
+| Ticket | User | Issue | Diagnosis | Fix |
+|---|---|---|---|---|
+| INC-0001 | jdoe | Account locked out | `Get-ADUser` LockedOut = True; event 4740 named CLIENT01 as the source | `Unlock-ADAccount` |
+| INC-0002 | pparker | Forgotten password | No lockout or disabled flag | Temp password + `-ChangePasswordAtLogon` |
+| INC-0003 | jsmith | Account disabled | `Search-ADAccount -AccountDisabled` | `Enable-ADAccount` |
+| INC-0004 | pparker | Policies stopped applying | `gpresult /r` showed CN=Users instead of the Lab Users OU; S: drive persisted as a GP Preference | Moved user back to Lab Users |
 
 ## Troubleshooting highlights
 
@@ -63,6 +72,7 @@ gpmc-gpos.png         GPOs linked in Group Policy Management
 gpresult-jdoe.png     User GPOs applied to jdoe
 drive-restriction.png S: drive and Control Panel restriction
 rdp-group.png         Lab Staff in Remote Desktop Users
+t1-*.png … t4-*.png   Help desk ticket screenshots (INC-0001 to INC-0004)
 ```
 
 ---
