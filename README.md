@@ -35,7 +35,7 @@ A virtualized Windows domain built in Hyper-V to practice real help desk and sys
 |---|---|---|
 | 1 | Windows Server 2022 Active Directory (this repo) | Complete |
 | 2 | [Help Desk Ticketing System](https://emilagui01.github.io/helpdesk-lab/) | Complete |
-| 3 | PowerShell Automation Scripts (bulk provisioning on this domain) | Next |
+| 3 | [PowerShell Automation](https://emilagui01.github.io/powershell-automation-lab/) | Complete |
 
 ## Help desk tickets
 
